@@ -6,6 +6,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -37,6 +38,7 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
     private Contact currentContact;
     final int PERMISSION_REQUEST_PHONE = 102;
     final int PERMISSION_REQUEST_CAMERA = 103;
+    final int PERMISSION_REQUEST_SMS = 104;
     final int CAMERA_REQUEST = 1888;
 
 
@@ -55,6 +57,7 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
         initSaveButton();
         initCallFunction();
         initImageButton();
+        initSmsFunction();
 
         Bundle extras = getIntent().getExtras();
         if(extras != null) {
@@ -122,13 +125,15 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
                 return false;
             }
         });
+    }
 
+    private void initSmsFunction() {
         EditText editCell = (EditText) findViewById(R.id.editCell);
         editCell.setOnLongClickListener(new View.OnLongClickListener() {
 
             @Override
             public boolean onLongClick(View arg0) {
-                checkPhonePermission(currentContact.getCellNumber());
+                checkSmsPermission(currentContact.getCellNumber());
                 return false;
             }
         });
@@ -158,6 +163,30 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
         }
     }
 
+    private void checkSmsPermission(String cellNumber) {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+
+                if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, android.Manifest.permission.SEND_SMS)) {
+
+                    Snackbar.make(findViewById(R.id.activity_main), "MyContactList requires this permission to send a SMS from the app.", Snackbar.LENGTH_INDEFINITE).setAction("OK", new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.SEND_SMS },PERMISSION_REQUEST_SMS);
+                        }
+                    })
+                            .show();
+                } else {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.SEND_SMS},PERMISSION_REQUEST_SMS);
+                }
+            } else {
+                sendSms(cellNumber);
+            }
+        } else {
+            sendSms(cellNumber);
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
 
@@ -176,7 +205,15 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
                 } else {
                     Toast.makeText(MainActivity.this, "You will not be able to save contact pictures from this app", Toast.LENGTH_LONG).show();
                 }
-                return;
+                break;
+            }
+            case PERMISSION_REQUEST_SMS: {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(MainActivity.this, "You may now send SMS from this app.", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "You will not be able to send SMS “ +“from this app", Toast.LENGTH_LONG).show();
+                }
+                break;
             }
         }
     }
@@ -203,6 +240,16 @@ public class MainActivity extends AppCompatActivity implements DatePickerDialog.
         intent.setData(Uri.parse("tel:" + phoneNumber));
         if ( Build.VERSION.SDK_INT >= 23 && ContextCompat.checkSelfPermission(getBaseContext(), android.Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             return  ;
+        } else {
+            startActivity(intent);
+        }
+    }
+
+    private void sendSms(String cellNumber) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(Uri.parse("smsto:" + cellNumber));
+        if ( Build.VERSION.SDK_INT >= 23 && ContextCompat.checkSelfPermission(getBaseContext(), android.Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            return;
         } else {
             startActivity(intent);
         }
